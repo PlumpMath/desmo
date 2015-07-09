@@ -12,9 +12,6 @@
 
 (def patch (.-patch js/virtualDom))
 
-(let [VText (.-VText js/virtualDom)]
-  (defn text [txt] (VText. txt)))
-
 (defn collect-args [attrs args]
   (if (keyword? (first args))
     (collect-args (conj attrs (vec (take 2 args))) (drop 2 args))
@@ -29,10 +26,9 @@
                   (-> k name (replace "-" ""))))))
 
 (defn constructor [type]
-  (let [VNode (.-VNode js/virtualDom)]
-    (fn [& args]
-      (let [[attrs children] (collect-args {} args)]
-        (VNode. type (-> attrs fix-keys clj->js) (clj->js children))))))
+  (fn [& args]
+    (let [[attrs children] (collect-args {} args)]
+      (. js/virtualDom h type (-> attrs fix-keys clj->js) (clj->js children)))))
 
 (define-tags
   a abbr address area article aside audio b base bdi bdo big blockquote body br

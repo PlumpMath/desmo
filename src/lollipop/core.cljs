@@ -2,7 +2,7 @@
   (:require-macros
    [cljs.core.async.macros :refer [go go-loop]])
   (:require
-   [lollipop.dom :as dom :refer [div input label text]]
+   [lollipop.dom :as dom :refer [div input label]]
    [clojure.string :refer [blank? capitalize join split]]
    [plumbing.core :refer [map-vals] :refer-macros [fn-> fn->> <-]]
    [jamesmacaulay.zelkova.signal :as signal]
@@ -13,9 +13,8 @@
   (let [n (-> k str (subs 1))
         l (->> (split n "/") (map capitalize) (join " "))]
     {:handlers {:term-changed [[p (fn [_ v] [k v])]]}
-     :markup (div :class "term" :key n
-                  (label :for n
-                         (text l))
+     :markup (div :class "term"
+                  (label :for n l)
                   (input :name n
                          :value v
                          :on-input #(go (>! c [:term-changed p (.. % -target -value)]))
@@ -41,7 +40,7 @@
                            handlers)
      :markup (div :id "app"
                   markup
-                  (dom/p (text (str "log: " log))))}))
+                  (dom/p (str "log: " log)))}))
 
 (defn update-in-path [s p f]
   (if-let [k (first p)]
@@ -68,26 +67,29 @@
 
 (def log (partial signal/map (fn [_] (. js/console log (str _)) _)))
 
+(defn animate [f] (. js/window requestAnimationFrame f))
+
+(def windowed-pair
+  (partial signal/reductions
+     (fn [[old new] m]
+       (if old [new m] [m m]))
+     [nil nil]))
+
 (defn render [component state root]
   (let [events (signal/write-port [:no-op])
         component (partial component events [])
         handlers (comp :handlers component)
         markup (comp :markup component)
         patches (->> events
-                     log
                      (signal/reductions (partial step handlers) state)
-                     log
                      (signal/map markup)
-                     (signal/reductions dom/diff)
+                     windowed-pair
+                     (signal/map (partial apply dom/diff))
                      (signal/to-chan))
-        nodes (chan)]
-    (go (>! nodes (->> state markup dom/tree
-                       (.appendChild root))))
+        node (atom (->> state markup dom/tree
+                        (.appendChild root)))]
     (go-loop []
-      (let [patch (<! patches)
-            node (<! nodes)]
-        (. js/window requestAnimationFrame
-           #(go (>! nodes (dom/patch node patch)))))
+      (reset! node (dom/patch @node (<! patches)))
       (recur))))
 
 (when-not (repl/alive?)
