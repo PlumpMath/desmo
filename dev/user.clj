@@ -12,4 +12,5 @@
       (wrap-resource "public")
       (wrap-content-type)
       (run-jetty {:port 3000 :join? false}))
-  (cljs-repl (repl-env :ip "0.0.0.0" :port 9001)))
+  (cljs-repl (repl-env :ip "0.0.0.0" :port 9001)
+             :output-dir "resources/public/js/out"))
