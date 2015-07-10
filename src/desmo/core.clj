@@ -1,6 +1,6 @@
 (ns desmo.core
   (:require
-   [nuejure.core :refer :all]))
+   [ossicone.core :refer :all]))
 
 (defmacro component [bindings & body]
   (let [last (list `(return ~(last body)))

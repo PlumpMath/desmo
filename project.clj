@@ -3,7 +3,7 @@
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [prismatic/plumbing "0.4.4"]
-                 [nuejure "0.1.0-SNAPSHOT"]
+                 [ossicone "0.1.0-SNAPSHOT"]
                  [jamesmacaulay/zelkova "0.4.0"]]
   :plugins [[lein-cljsbuild "1.0.6"]]
   :cljsbuild

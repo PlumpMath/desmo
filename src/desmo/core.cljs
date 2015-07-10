@@ -4,8 +4,8 @@
   (:require
    [desmo.dom :as dom]
    [plumbing.core :refer-macros [fn->]]
-   [nuejure.core :refer [mapf return traverse] :refer-macros [mlet]]
-   [nuejure.effect :refer [env local modify run]]
+   [ossicone.core :refer [mapf return traverse] :refer-macros [mlet]]
+   [ossicone.effect :refer [env local modify run]]
    [jamesmacaulay.zelkova.signal :as signal]
    [cljs.core.async :refer [>! <! chan]]))
 
@@ -44,7 +44,7 @@
 
 (defn connect [path component]
   (mlet [s state]
-    (let [f (partial local component :path conj)]
+    (let [f (partial local component update :path conj)]
       (if (sequential? s)
         (traverse (for [c s]
                     (f [path (get c path)])))
