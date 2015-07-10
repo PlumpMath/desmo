@@ -7,10 +7,13 @@
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.adapter.jetty :refer [run-jetty]]))
 
+(def server (atom nil))
+
 (defn start-cljs-repl []
-  (-> (constantly (redirect "/index.html"))
-      (wrap-resource "public")
-      (wrap-content-type)
-      (run-jetty {:port 3000 :join? false}))
+  (when-not @server
+    (reset! server (-> (constantly (redirect "/index.html"))
+                       (wrap-resource "public")
+                       (wrap-content-type)
+                       (run-jetty {:port 3000 :join? false}))))
   (cljs-repl (repl-env :ip "0.0.0.0" :port 9001)
              :output-dir "resources/public/js/out"))

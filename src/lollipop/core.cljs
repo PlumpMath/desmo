@@ -2,95 +2,93 @@
   (:require-macros
    [cljs.core.async.macros :refer [go go-loop]])
   (:require
-   [lollipop.dom :as dom :refer [div input label]]
-   [clojure.string :refer [blank? capitalize join split]]
-   [plumbing.core :refer [map-vals] :refer-macros [fn-> fn->> <-]]
+   [lollipop.dom :as dom]
+   [plumbing.core :refer-macros [fn->]]
+   [nuejure.core :refer [mapf return traverse] :refer-macros [mlet]]
+   [nuejure.effect :refer [env local modify run]]
    [jamesmacaulay.zelkova.signal :as signal]
-   [cljs.core.async :refer [>! <! chan]]
-   [weasel.repl :as repl]))
+   [cljs.core.async :refer [>! <! chan]]))
 
-(defn term [c p [k v]]
-  (let [n (-> k str (subs 1))
-        l (->> (split n "/") (map capitalize) (join " "))]
-    {:handlers {:term-changed [[p (fn [_ v] [k v])]]}
-     :markup (div :class "term"
-                  (label :for n l)
-                  (input :name n
-                         :value v
-                         :on-input #(go (>! c [:term-changed p (.. % -target -value)]))
-                         :on-key-down #(case (.-which %)
-                                         13 (js/alert "searching...")
-                                         8 (when (-> % .-target .-value blank?)
-                                             (go (>! c [:term-removed p k])))
-                                         nil)))}))
-
-(defn terms [c p ts]
-  (let [terms (for [[k v] ts]
-                (term c (conj p [0 k]) [k v]))]
-    {:handlers (apply merge-with concat
-                      {:term-removed [[p (fn [s k] (vec (remove (comp (partial = k) first) s)))]]}
-                      (map :handlers terms))
-     :markup (div :class "terms"
-                  (map :markup terms))}))
-
-(defn app [c p {ts :terms log :log}]
-  (let [{:keys [markup handlers]} (terms c (conj p :terms) ts)]
-    {:handlers (merge-with concat
-                           {:term-changed [[p (fn [s v] (assoc s :log v))]]}
-                           handlers)
-     :markup (div :id "app"
-                  markup
-                  (dom/p (str "log: " log)))}))
+(defn get-in-path [s p]
+  (if-let [k (first p)]
+    (if (vector? k)
+      (let [[k v] k]
+        (-> (filter #(= v (get % k)) s)
+            first
+            (get-in-path (rest p))))
+      (get-in-path (get s k) (rest p)))
+    s))
 
 (defn update-in-path [s p f]
   (if-let [k (first p)]
-    (let [col (fn [df]
-                (let [[k v] (df k)]
-                  (mapv #(if (= v (get % k))
-                           (update-in-path % (rest p) f)
-                           %)
-                        s)))]
-      (cond
-        (vector? k) (col identity)
-        (map? k)    (col (fn-> seq first))
-        :else       (assoc s k (update-in-path (k s) (rest p) f))))
+    (if (vector? k)
+      (let [[k v] k]
+        (mapv #(if (= v (get % k))
+                 (update-in-path % (rest p) f)
+                 %)
+              s))
+      (assoc s k (update-in-path (get s k) (rest p) f)))
     (f s)))
+
+(def state (mlet [{:keys [state path]} env]
+             (return (get-in-path state path))))
+
+(def with-ch
+  (mlet [{:keys [ch path]} env]
+    (return (fn [tag & values]
+              (go (>! ch (apply vector tag path values)))))))
+
+(defn on [tag f]
+  (mlet [{:keys [path]} env]
+    (modify update tag conj [path f])))
+
+(defn connect [path component]
+  (mlet [s state]
+    (let [f (partial local component :path conj)]
+      (if (sequential? s)
+        (traverse (for [c s]
+                    (f [path (get c path)])))
+        (f path)))))
 
 (defn subseq? [a b] (every? true? (map = a b)))
 
-(defn step [handlers state [tag path & args]]
-  (->> (handlers state)
-       tag
-       (filter (comp (partial subseq? path) first))
-       reverse
-       (reduce (fn [s [p f]] (update-in-path s p #(apply f % args))) state)))
+(defn step [run {:keys [handlers state]} [tag path & args]]
+  (let [new-state (->> handlers tag
+                       (filter (comp (partial subseq? path) first))
+                       (reduce (fn [s [p f]] (update-in-path s p #(apply f % args))) state))]
+    (assoc (run new-state) :state new-state)))
 
-(def log (partial signal/map (fn [_] (. js/console log (str _)) _)))
+(defn log
+  ([s] (log identity s))
+  ([f s] (signal/map (fn [v] (. js/console log (str (f v))) v) s)))
 
 (defn animate [f] (. js/window requestAnimationFrame f))
 
-(def windowed-pair
-  (partial signal/reductions
-     (fn [[old new] m]
-       (if old [new m] [m m]))
-     [nil nil]))
+(defn windowed-pair [init sig]
+  (signal/reductions (fn [[_ old] new] [old new]) [init init] sig))
 
-(defn render [component state root]
+(defn make-runner [component env]
+  (fn [s]
+    (let [{:keys [result state]} (run component :env (assoc env :state s))]
+      {:tree result
+       :handlers state})))
+
+(defn run-app [component state root]
   (let [events (signal/write-port [:no-op])
-        component (partial component events [])
-        handlers (comp :handlers component)
-        markup (comp :markup component)
+        run (make-runner component {:ch events :path []})
+        {:keys [handlers tree]} (run state)
+        node (do (-> js/goog .-dom (.removeChildren root))
+                 (->> tree dom/tree (.appendChild root) atom))
         patches (->> events
-                     (signal/reductions (partial step handlers) state)
-                     (signal/map markup)
-                     windowed-pair
+                     log
+                     (signal/reductions (partial step run)
+                                        {:state state
+                                         :handlers handlers})
+                     (log :state)
+                     (signal/map :tree)
+                     (windowed-pair tree)
                      (signal/map (partial apply dom/diff))
-                     (signal/to-chan))
-        node (atom (->> state markup dom/tree
-                        (.appendChild root)))]
+                     (signal/to-chan))]
     (go-loop []
       (reset! node (dom/patch @node (<! patches)))
       (recur))))
-
-(when-not (repl/alive?)
-  (repl/connect "ws://localhost:9001"))

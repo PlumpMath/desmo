@@ -8,19 +8,16 @@
                  [rum "0.2.7"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [jamesmacaulay/zelkova "0.4.0"]]
-  :plugins [[lein-cljsbuild "1.0.6"]
-            [lein-npm "0.5.1"]]
-  :node-dependencies [[virtual-dom "2.0.1"]]
-  :npm-root "resources/public/js"
+  :plugins [[lein-cljsbuild "1.0.6"]]
   :cljsbuild
-  {:builds [{:source-paths ["src"]
-             :compiler {:output-to  "resources/public/js/app.js"
-                        :output-dir "resources/public/js/out"
-                        :main lollipop.core
-                        :asset-path "js/out"
-                        :optimizations :none
-                        :source-map true
-                        :pretty-print  true}}]}
+  {:builds {:dev {:source-paths ["src" "dev"]
+                  :compiler {:output-to  "resources/public/js/app.js"
+                             :output-dir "resources/public/js/out"
+                             :main cljs.user
+                             :asset-path "js/out"
+                             :optimizations :none
+                             :source-map true
+                             :pretty-print  true}}}}
   :profiles {:dev {:dependencies [[weasel "0.7.0"]
                                   [com.cemerick/piggieback "0.2.1"]
                                   [org.clojure/tools.nrepl "0.2.10"]
