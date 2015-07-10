@@ -1,4 +1,4 @@
-(ns lollipop.core
+(ns desmo.core
   (:require
    [nuejure.core :refer :all]))
 

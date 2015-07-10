@@ -1,12 +1,9 @@
-(defproject lollipop "0.1.0-SNAPSHOT"
+(defproject desmo "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [prismatic/plumbing "0.4.4"]
                  [nuejure "0.1.0-SNAPSHOT"]
-                 [cljs-ajax "0.3.13"]
-                 [rum "0.2.7"]
-                 [org.clojure/core.match "0.3.0-alpha4"]
                  [jamesmacaulay/zelkova "0.4.0"]]
   :plugins [[lein-cljsbuild "1.0.6"]]
   :cljsbuild

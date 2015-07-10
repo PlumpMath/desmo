@@ -1,9 +1,9 @@
 (ns cljs.user
   (:require
-   [lollipop.core
+   [desmo.core
     :refer [state with-ch on connect run-app]
     :refer-macros [defc]]
-   [lollipop.dom :refer [div input label p]]
+   [desmo.dom :refer [div input label p]]
    [clojure.string :refer [blank? capitalize join split]]
    [weasel.repl :as repl]))
 

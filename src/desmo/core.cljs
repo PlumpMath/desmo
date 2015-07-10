@@ -1,8 +1,8 @@
-(ns lollipop.core
+(ns desmo.core
   (:require-macros
    [cljs.core.async.macros :refer [go go-loop]])
   (:require
-   [lollipop.dom :as dom]
+   [desmo.dom :as dom]
    [plumbing.core :refer-macros [fn->]]
    [nuejure.core :refer [mapf return traverse] :refer-macros [mlet]]
    [nuejure.effect :refer [env local modify run]]

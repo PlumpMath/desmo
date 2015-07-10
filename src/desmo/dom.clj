@@ -1,4 +1,4 @@
-(ns lollipop.dom)
+(ns desmo.dom)
 
 (defn tag-definition [tag]
   `(let [ctor# (constructor ~(name tag))]

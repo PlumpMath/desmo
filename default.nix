@@ -1,7 +1,7 @@
 with import <nixpkgs> { };
 
 stdenv.mkDerivation {
-  name = "lollipop";
+  name = "desmo";
 
   buildInputs = [leiningen nodejs chromium];
 }

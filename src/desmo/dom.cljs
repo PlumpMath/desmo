@@ -1,10 +1,10 @@
-(ns lollipop.dom
+(ns desmo.dom
   (:refer-clojure :exclude [time map meta])
   (:require
    [clojure.string :refer [replace]]
    [plumbing.core :refer [map-keys]])
   (:require-macros
-   [lollipop.dom :refer [define-tags]]))
+   [desmo.dom :refer [define-tags]]))
 
 (def tree (.-create js/virtualDom))
 
