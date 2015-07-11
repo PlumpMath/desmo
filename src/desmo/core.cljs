@@ -58,6 +58,7 @@
 (defn step [run {:keys [handlers state]} [tag path & args]]
   (let [new-state (->> handlers tag
                        (filter (comp (partial subseq? path) first))
+                       reverse
                        (reduce (fn [s [p f]] (update-in-path s p #(apply f % args))) state))]
     (assoc (run new-state) :state new-state)))
 
