@@ -42,6 +42,9 @@
   (mlet [{:keys [path]} env]
     (modify update tag conj [path f])))
 
+(defn on! [tag f!]
+  (on tag #(do (f! %) %)))
+
 (defn connect [path component]
   (mlet [s state]
     (let [f (partial local component update :path conj)]
