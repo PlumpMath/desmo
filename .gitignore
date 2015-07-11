@@ -2,3 +2,5 @@
 /resources/public/js
 *.log
 /target
+/.nrepl-port
+/pom.xml

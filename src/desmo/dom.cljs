@@ -15,9 +15,7 @@
 (defn collect-args [attrs args]
   (if (keyword? (first args))
     (collect-args (conj attrs (vec (take 2 args))) (drop 2 args))
-    [attrs (if (some coll? args)
-             (apply concat args)
-             args)]))
+    [attrs (flatten args)]))
 
 (def fix-keys
   (partial map-keys (fn [k]

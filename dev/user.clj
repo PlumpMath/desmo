@@ -14,6 +14,6 @@
     (reset! server (-> (constantly (redirect "/index.html"))
                        (wrap-resource "public")
                        (wrap-content-type)
-                       (run-jetty {:port 3000 :join? false}))))
+                       (run-jetty {:port 3001 :join? false}))))
   (cljs-repl (repl-env :ip "0.0.0.0" :port 9001)
              :output-dir "resources/public/js/out"))

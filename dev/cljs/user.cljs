@@ -3,7 +3,7 @@
    [desmo.core
     :refer [state with-ch on connect run-app]
     :refer-macros [defc]]
-   [desmo.dom :refer [div input label p]]
+   [desmo.dom :refer [div input label p ol ul li]]
    [clojure.string :refer [blank? capitalize join split]]
    [weasel.repl :as repl]))
 
@@ -32,10 +32,12 @@
 
 (defc app [{log :log} state
            terms (connect :terms terms)]
-  (on :term-changed (fn [s v] (assoc s :log v)))
-  (div
-   terms
-   (p (str "log: " log))))
+  (let [term-changed (fn [s v] (assoc s :log v))]
+    (on :term-changed term-changed)
+    (div
+     terms
+     (for [i (range 5)]
+       (p (str "log: " log))))))
 
 (def initial-state {:terms [[:card/name "BORBO"] [:card/type "CYCLOPS"]]
                     :log "..."})
