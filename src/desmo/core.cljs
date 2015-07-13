@@ -43,7 +43,7 @@
     (modify update tag conj [path f])))
 
 (defn on! [tag f!]
-  (on tag #(do (f! %) %)))
+  (on tag (fn [s & args] (apply f! s args) s)))
 
 (defn connect [path component]
   (mlet [s state]
