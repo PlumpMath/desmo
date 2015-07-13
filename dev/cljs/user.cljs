@@ -1,14 +1,10 @@
 (ns cljs.user
   (:require
    [desmo.core
-    :refer [state with-ch on connect run-app]
-    :refer-macros [defc]]
+    :refer [state with-ch on on! connect run-app]
+    :refer-macros [defc on-let]]
    [desmo.dom :refer [div input label p ol ul li]]
-   [clojure.string :refer [blank? capitalize join split]]
-   [weasel.repl :as repl]))
-
-(when-not (repl/alive?)
-  (repl/connect "ws://localhost:9001"))
+   [clojure.string :refer [blank? capitalize join split]]))
 
 (defc term [[k v] state
             send! with-ch]
@@ -32,17 +28,18 @@
 
 (defc app [{log :log} state
            terms (connect :terms terms)]
-  (let [term-changed (fn [s v] (assoc s :log v))]
+  (on-let [term-changed (fn [s v] (assoc s :log v))]
     (on :term-changed term-changed)
-    (div
-     terms
-     (for [i (range 5)]
-       (p (str "log: " log))))))
+    (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v)))))
+  (div
+   terms
+   (for [i (range 3)]
+     (p (str "log: " log)))))
 
 (def initial-state {:terms [[:card/name "BORBO"] [:card/type "CYCLOPS"]]
                     :log "..."})
 
 (def root #(. js/document getElementById "app"))
 
-(comment
+(defn main []
   (run-app app initial-state (root)))
