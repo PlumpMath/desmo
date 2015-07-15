@@ -7,6 +7,7 @@
                  [prismatic/plumbing "0.4.4"]
                  [ossicone "0.1.0-SNAPSHOT"]
                  [jamesmacaulay/zelkova "0.4.0"]
+                 [com.cognitect/transit-cljs "0.8.220"]
 
                  [org.clojure/tools.nrepl "0.2.10" :scope "test"]
                  [adzerk/boot-cljs "0.0-3308-0" :scope "test"]
@@ -22,7 +23,7 @@
 
 (deftask dev []
   (set-env! :source-paths #{"src" "dev"})
-  (comp (serve "target")
+  (comp (serve "target" :port 3001)
      (watch)
      (reload :on-jsload 'cljs.user/main)
      (cljs-repl)
@@ -30,7 +31,7 @@
            :source-map true
            :pretty-print true)))
 
-(deftask build []
+(deftask install-jar []
   (set-env! :resource-paths #{"src"})
   (comp (pom :project 'desmo
           :version "0.1.0-SNAPSHOT")

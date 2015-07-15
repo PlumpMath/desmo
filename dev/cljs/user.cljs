@@ -1,7 +1,8 @@
 (ns cljs.user
   (:require
    [desmo.core
-    :refer [state with-ch on on! connect run-app]
+    :refer [state with-ch on on! connect
+            run-app render-app log-app save-app load-app]
     :refer-macros [defc on-let]]
    [desmo.dom :refer [div input label p ol ul li]]
    [clojure.string :refer [blank? capitalize join split]]))
@@ -36,10 +37,14 @@
    (for [i (range 3)]
      (p (str "log: " log)))))
 
-(def initial-state {:terms [[:card/name "BORBO"] [:card/type "CYCLOPS"]]
-                    :log "..."})
-
-(def root #(. js/document getElementById "app"))
-
 (defn main []
-  (run-app app initial-state (root)))
+  (let [store-key "app-state"
+        init-state {:terms [[:card/name "BORBO"] [:card/type "CYCLOPS"]]
+                    :log "..."}
+        root (. js/document getElementById "app")]
+    (-> (run-app app (or (load-app store-key) init-state))
+        (render-app root)
+        (log-app)
+        (save-app store-key :debounce 1000))))
+
+(.addEventListener js/document "DOMContentLoaded" main)
