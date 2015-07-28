@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [time map meta])
   (:require
    [clojure.string :refer [replace]]
-   [plumbing.core :refer [map-keys]])
+   [plumbing.core :refer [map-keys]]
+   [cljsjs.virtual-dom])
   (:require-macros
    [desmo.dom :refer [define-tags]]))
 

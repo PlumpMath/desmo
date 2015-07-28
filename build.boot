@@ -8,6 +8,7 @@
                  [ossicone "0.1.0-SNAPSHOT"]
                  [jamesmacaulay/zelkova "0.4.0"]
                  [com.cognitect/transit-cljs "0.8.220"]
+                 [cljsjs/virtual-dom "2.1.0-0"]
 
                  [org.clojure/tools.nrepl "0.2.10" :scope "test"]
                  [adzerk/boot-cljs "0.0-3308-0" :scope "test"]
@@ -23,17 +24,22 @@
 
 (deftask dev []
   (set-env! :source-paths #{"src" "dev"})
-  (comp (serve "target" :port 3001)
+  (comp (serve :port 3002)
      (watch)
      (reload :on-jsload 'cljs.user/main)
      (cljs-repl)
      (cljs :optimizations :none
-           :source-map true
-           :pretty-print true)))
+           :source-map true)))
+
+(deftask test []
+  (set-env! :source-paths #{"src" "dev"})
+  (comp (serve :port 3002)
+     (watch)
+     (cljs :optimizations :advanced)))
 
 (deftask install-jar []
   (set-env! :resource-paths #{"src"})
   (comp (pom :project 'desmo
-          :version "0.1.0-SNAPSHOT")
+          :version "0.2.0-SNAPSHOT")
      (jar)
      (install)))

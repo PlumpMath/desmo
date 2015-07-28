@@ -4,12 +4,13 @@
   (:require
    [desmo.dom :as dom]
    [plumbing.core :refer-macros [fn->]]
-   [ossicone.core :refer [mapf return traverse] :refer-macros [mlet]]
+   [ossicone.core :refer [mapf return traverse] :refer-macros [mlet f->]]
    [ossicone.effect :refer [env local modify run]]
    [jamesmacaulay.zelkova.signal :as signal]
    [jamesmacaulay.zelkova.time :as time]
    [cljs.core.async :refer [>! <! chan close!]]
-   [cognitect.transit :as transit]))
+   [cognitect.transit :as transit]
+   [goog.dom :as gdom]))
 
 (defn get-in-path [s p]
   (if-let [k (first p)]
@@ -35,7 +36,9 @@
 (def state (mlet [{:keys [state path]} env]
              (return (get-in-path state path))))
 
-(def with-ch
+(def conf (f-> env :conf))
+
+(def send!
   (mlet [{:keys [ch path]} env]
     (return (fn [tag & values]
               (go (>! ch (apply vector tag path values)))))))
@@ -47,12 +50,13 @@
 (defn on! [tag f!]
   (on tag (fn [s & args] (apply f! s args) s)))
 
-(defn connect [path component]
+(defn link [path component]
   (mlet [s state]
     (let [f (partial local component update :path conj)]
       (if (sequential? s)
-        (traverse (for [c s]
-                    (f [path (get c path)])))
+        (let [path (if (map? s) :id 0)]
+          (traverse (for [c s]
+                      (f [path (get c path)]))))
         (f path)))))
 
 (defn subseq? [a b] (every? true? (map = a b)))
@@ -71,7 +75,7 @@
 (defn sliding-pair [init sig]
   (signal/reductions (fn [[_ old] new] [old new]) [init init] sig))
 
-(defn to-write-port [sig]
+(defn to-read-port [sig]
   (let [from (signal/to-chan sig)
         to (signal/write-port nil)]
     (go-loop []
@@ -79,7 +83,7 @@
         (>! to v)
         (close! to))
       (recur))
-    to))
+    (signal/map identity to)))
 
 (defn animate [f] (. js/window requestAnimationFrame f))
 
@@ -89,23 +93,24 @@
       {:tree result
        :handlers state})))
 
-(defn run-app [component state]
+(defn run-app [component state & {:keys [conf]
+                                  :or {conf {}}}]
   (let [events (signal/write-port nil)
-        run (make-runner component {:ch events :path []})
+        run (make-runner component {:ch events :path [] :conf conf})
         {:keys [handlers tree]} (run state)
         steps (->> events
                    (signal/reductions (partial step run)
                                       {:state state
                                        :handlers handlers})
                    (signal/map (fn-> (select-keys [:state :tree])))
-                   to-write-port)]
+                   to-read-port)]
     {:event (signal/map identity events)
      :state (signal/map :state steps)
      :tree (signal/map :tree steps)
      :init-tree tree}))
 
 (defn render-app [{:keys [tree init-tree] :as m} root]
-  (-> js/goog .-dom (.removeChildren root))
+  (gdom/removeChildren root)
   (let [node (->> init-tree dom/tree (.appendChild root) atom)
         patches (->> tree
                      (sliding-pair init-tree)
@@ -114,7 +119,7 @@
     (go-loop []
       (reset! node (dom/patch @node (<! patches)))
       (recur)))
-  (select-keys m [:state :event]))
+  m)
 
 (defn log-app [m]
   (->> (select-keys m [:event :state])
@@ -123,10 +128,12 @@
        signal/spawn)
   m)
 
-(defn save-app [m store-key & {:keys [debounce] :or {debounce 0}}]
+(defn save-app [m store-key & {:keys [debounce path]
+                               :or {debounce 0
+                                    path []}}]
   (let [ch (->> m :state (time/debounce debounce) signal/to-chan)]
     (go-loop []
-      (->> (<! ch)
+      (->> (get-in-path (<! ch) path)
            (transit/write (transit/writer :json))
            (. js/localStorage setItem store-key))
       (recur)))
