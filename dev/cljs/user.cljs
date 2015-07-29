@@ -41,7 +41,7 @@
 (defn main []
   (let [store-key "app-state"
         root (. js/document getElementById "app")
-        conf (js->clj js/conf :keywordize-keys true)
+        conf {:alert "THIS IS MADNESS!"}
         init-state {:terms [[:card/name "BORBO"] [:card/type "CYCLOPS"]]
                     :log "..."}
         state (or (load-app store-key) init-state)]

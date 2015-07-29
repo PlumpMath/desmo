@@ -54,7 +54,7 @@
   (mlet [s state]
     (let [f (partial local component update :path conj)]
       (if (sequential? s)
-        (let [path (if (map? s) :id 0)]
+        (let [path (if (map? (first s)) :id 0)]
           (traverse (for [c s]
                       (f [path (get c path)]))))
         (f path)))))
