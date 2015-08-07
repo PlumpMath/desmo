@@ -4,8 +4,8 @@
   (:require
    [desmo.dom :as dom]
    [plumbing.core :refer-macros [fn->]]
-   [ossicone.core :refer [mapf return traverse] :refer-macros [mlet f->]]
-   [ossicone.effect :refer [env local modify run]]
+   [ossicone.core :refer [mapf return traverse] :refer-macros [mlet f-> f->>]]
+   [ossicone.effect :as eff]
    [jamesmacaulay.zelkova.signal :as signal]
    [jamesmacaulay.zelkova.time :as time]
    [cljs.core.async :refer [>! <! chan close!]]
@@ -33,40 +33,46 @@
       (assoc s k (update-in-path (get s k) (rest p) f)))
     (f s)))
 
-(def state (mlet [{:keys [state path]} env]
-             (return (get-in-path state path))))
+(def state (f-> eff/env :state))
 
-(def conf (f-> env :conf))
+(def conf (f-> eff/env :conf))
 
 (def send!
-  (mlet [{:keys [ch path]} env]
+  (mlet [{:keys [ch path]} eff/env]
     (return (fn [tag & values]
               (go (>! ch (apply vector tag path values)))))))
 
 (defn on [tag f]
-  (mlet [{:keys [path]} env]
-    (modify update tag conj [path f])))
+  (mlet [{:keys [path]} eff/env]
+    (return {tag [[path f]]})))
 
 (defn on! [tag f!]
   (on tag (fn [s & args] (apply f! s args) s)))
 
+(defn cache [component]
+  (mlet [{:keys [state cache]} eff/env]
+    (if (= (trace state) (trace (:state cache)))
+      (do (. js/console log "FROM CACHE!")
+          (return cache))
+      component)))
+
+(defn linked [path component]
+  (mlet [state (f-> eff/env :state (get-in-path [path]))
+         path (f-> eff/env :path (conj path))
+         cache (f-> eff/env :cache (get path))
+         {:keys [dom handlers] :as result} (eff/local component
+                                                      (fn-> (assoc :path path)
+                                                            (assoc :state state)
+                                                            (assoc :cache cache)))]
+    (eff/modify assoc-in [:cache path] (merge {:state state} result))
+    (return dom)))
+
 (defn link [path component]
-  (mlet [s state]
-    (let [f (partial local component update :path conj)]
-      (if (sequential? s)
-        (let [path (if (map? (first s)) :id 0)]
-          (traverse (for [c s]
-                      (f [path (get c path)]))))
-        (f path)))))
-
-(defn subseq? [a b] (every? true? (map = a b)))
-
-(defn step [run {:keys [handlers state]} [tag path & args]]
-  (let [new-state (->> handlers tag
-                       (filter (comp (partial subseq? path) first))
-                       reverse
-                       (reduce (fn [s [p f]] (update-in-path s p #(apply f % args))) state))]
-    (assoc (run new-state) :state new-state)))
+  (mlet [{:keys [state]} eff/env]
+    (if (sequential? state)
+      (let [path (if (map? (first state)) :id 0)]
+        (traverse (map #(linked [path (get % path)] component) state)))
+      (linked path component))))
 
 (defn log
   ([s] (log identity s))
@@ -87,33 +93,47 @@
 
 (defn animate [f] (. js/window requestAnimationFrame f))
 
+(defn subseq? [a b] (every? true? (map = a b)))
+
+(def trace (fn [_] (. js/console log (str _)) _))
+
+(defn step [run {:keys [handlers state cache]} [tag path & args]]
+  (let [new-state (->> handlers tag
+                       (filter (comp (partial subseq? path) first))
+                       reverse
+                       (reduce (fn [s [p f]] (update-in-path s p #(apply f % args))) state))]
+    (assoc (run new-state cache) :state new-state)))
+
 (defn make-runner [component env]
-  (fn [s]
-    (let [{:keys [result state]} (run component :env (assoc env :state s))]
-      {:tree result
-       :handlers state})))
+  (fn [s c] (let [{{dom :dom} :result
+                {:keys [handlers cache]} :state}
+                 (eff/run component :env (assoc env :state s :cache c))]
+           {:dom dom
+            :handlers handlers
+            :cache cache})))
 
 (defn run-app [component state & {:keys [conf]
                                   :or {conf {}}}]
   (let [events (signal/write-port nil)
         run (make-runner component {:ch events :path [] :conf conf})
-        {:keys [handlers tree]} (run state)
+        {:keys [dom handlers cache]} (run state {})
         steps (->> events
                    (signal/reductions (partial step run)
                                       {:state state
-                                       :handlers handlers})
-                   (signal/map (fn-> (select-keys [:state :tree])))
+                                       :handlers handlers
+                                       :cache cache})
+                   (signal/map (fn-> (select-keys [:state :dom])))
                    to-read-port)]
     {:event (signal/map identity events)
      :state (signal/map :state steps)
-     :tree (signal/map :tree steps)
-     :init-tree tree}))
+     :dom (signal/map :dom steps)
+     :init-dom dom}))
 
-(defn render-app [{:keys [tree init-tree] :as m} root]
+(defn render-app [{:keys [dom init-dom] :as m} root]
   (gdom/removeChildren root)
-  (let [node (->> init-tree dom/tree (.appendChild root) atom)
-        patches (->> tree
-                     (sliding-pair init-tree)
+  (let [node (->> init-dom dom/tree (.appendChild root) atom)
+        patches (->> dom
+                     (sliding-pair init-dom)
                      (signal/map (partial apply dom/diff))
                      signal/to-chan)]
     (go-loop []

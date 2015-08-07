@@ -2,13 +2,13 @@
   (:require
    [desmo.core
     :refer [send! on on! run-app render-app log-app save-app load-app]
-    :refer-macros [defc on-let]]
+    :refer-macros [defc defcfn]]
    [desmo.dom :refer [div input label p ol ul li]]
    [clojure.string :refer [blank? capitalize join split]]))
 
 (defc term [k v]
-  :use [send!]
-  :conf {msg :alert}
+  (use send!)
+  (conf {msg :alert})
   (on :term-changed (fn [_ v] [k v]))
   (let [n (-> k str (subs 1))
         l (->> (split n "/") (map capitalize) (join " "))]
@@ -24,15 +24,19 @@
                                 nil)))))
 
 (defc terms
-  :link [term]
+  (link term)
   (on :term-removed (fn [s k] (vec (remove (comp (partial = k) first) s))))
   (div :class "terms" term))
 
+(defcfn term-changed [s v]
+  (conf {msg :alert})
+  (assoc s :log (str v " " msg)))
+
 (defc app {log :log}
-  :link [terms]
-  (on-let [term-changed (fn [s v] (assoc s :log v))]
-    (on :term-changed term-changed)
-    (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v)))))
+  (link terms)
+  (use term-changed)
+  (on :term-changed term-changed)
+  ;; (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v))))
   (div
    terms
    (for [i (range 3)]
@@ -47,7 +51,7 @@
         state (or (load-app store-key) init-state)]
     (-> (run-app app state :conf conf)
         (render-app root)
-        (log-app)
+        ;; (log-app)
         (save-app store-key :debounce 1000))))
 
 (.addEventListener js/document "DOMContentLoaded" main)

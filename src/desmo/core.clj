@@ -2,35 +2,34 @@
   (:require
    [ossicone.core :refer :all]))
 
-(defmacro on-let [bindings & body]
-  `(let ~bindings (mdo ~@body)))
-
-(defn collect-bindings [args & {ks :keys}]
-  (let [k->b {:state (fn [s] [s `state])
-              :conf (fn [e] [e `conf])
-              :use (partial mapcat (fn [u] [u u]))
-              :link (partial mapcat (fn [c] [c `(link ~(keyword c) ~c)]))}
-        k->b (if ks (select-keys k->b ks) k->b)]
+(defn bindings [args]
+  (let [s->b {'state (fn [[s]] [s `state])
+              'conf (fn [[e]] [e `conf])
+              'use (partial mapcat (fn [u] [u u]))
+              'link (partial mapcat (fn [c] [c `(link ~(keyword c) ~c)]))}
+        b? (set (keys s->b))]
     (->> args
-         (partition-all 2)
-         (reduce (fn [m [k v :as p]]
-                   (if (keyword? k)
-                     (update m :bindings concat (if-let [f (k k->b)] (f v) []))
-                     (update m :body concat p)))
-                 {})
-         (mapf vec))))
+         (filter (comp b? first))
+         (mapcat (fn [[s & v]]
+                   ((s->b s) v)))
+         vec)))
 
-(defmacro component [& args]
-  (let [args (let [s (first args)]
-               (if (keyword? s) args (concat (list :state s) (rest args))))
-        {:keys [bindings body]} (collect-bindings args)
-        body (concat (butlast body) (list `(return ~(last body))))]
-    `(mlet ~bindings ~@body)))
+(defn handlers [args]
+  (let [h? '#{on on!}]
+    (->> args (filter (comp h? first)) vec)))
+
+(defmacro component [& [s & as :as args]]
+  (let [args (if (list? s) args (concat (list (list 'state s)) as))]
+    `(cache
+      (mlet ~(bindings args)
+        (mlet [handlers# (f->> (traverse ~(handlers args)) (apply merge-with concat))]
+          (ossicone.effect/modify update :handlers #(merge-with concat % handlers#))
+          (return {:handlers handlers#
+                   :dom ~(last args)}))))))
 
 (defmacro defc [name & args]
   `(def ~name (component ~@args)))
 
 (defmacro defcfn [name params & args]
-  (let [{:keys [bindings body]} (collect-bindings args :keys [:use :conf])]
-    `(def ~name (mlet ~bindings
-                  (return (fn ~params ~@body))))))
+  `(def ~name (mlet ~(bindings args)
+                (return (fn ~params ~(last args))))))
