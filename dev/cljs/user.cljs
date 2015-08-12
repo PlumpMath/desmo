@@ -36,7 +36,7 @@
   (link terms)
   (use term-changed)
   (on :term-changed term-changed)
-  ;; (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v))))
+  (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v))))
   (div
    terms
    (for [i (range 3)]
@@ -51,7 +51,7 @@
         state (or (load-app store-key) init-state)]
     (-> (run-app app state :conf conf)
         (render-app root)
-        ;; (log-app)
+        (log-app)
         (save-app store-key :debounce 1000))))
 
 (.addEventListener js/document "DOMContentLoaded" main)

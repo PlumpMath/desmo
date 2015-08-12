@@ -12,6 +12,8 @@
    [cognitect.transit :as transit]
    [goog.dom :as gdom]))
 
+(def trace (fn [_] (. js/console log (str _)) _))
+
 (defn get-in-path [s p]
   (if-let [k (first p)]
     (if (vector? k)
@@ -50,29 +52,27 @@
   (on tag (fn [s & args] (apply f! s args) s)))
 
 (defn cache [component]
-  (mlet [{:keys [state cache]} eff/env]
-    (if (= (trace state) (trace (:state cache)))
-      (do (. js/console log "FROM CACHE!")
-          (return cache))
-      component)))
+  (mlet [{:keys [path state cache]} eff/env]
+    (let [cached (get cache path)]
+      (if (= state (:state cached))
+        (return cached)
+        component))))
 
 (defn linked [path component]
   (mlet [state (f-> eff/env :state (get-in-path [path]))
          path (f-> eff/env :path (conj path))
-         cache (f-> eff/env :cache (get path))
          {:keys [dom handlers] :as result} (eff/local component
                                                       (fn-> (assoc :path path)
-                                                            (assoc :state state)
-                                                            (assoc :cache cache)))]
+                                                            (assoc :state state)))]
     (eff/modify assoc-in [:cache path] (merge {:state state} result))
-    (return dom)))
+    (return result)))
 
 (defn link [path component]
   (mlet [{:keys [state]} eff/env]
     (if (sequential? state)
       (let [path (if (map? (first state)) :id 0)]
         (traverse (map #(linked [path (get % path)] component) state)))
-      (linked path component))))
+      (mapf list (linked path component)))))
 
 (defn log
   ([s] (log identity s))
@@ -95,8 +95,6 @@
 
 (defn subseq? [a b] (every? true? (map = a b)))
 
-(def trace (fn [_] (. js/console log (str _)) _))
-
 (defn step [run {:keys [handlers state cache]} [tag path & args]]
   (let [new-state (->> handlers tag
                        (filter (comp (partial subseq? path) first))
@@ -105,12 +103,12 @@
     (assoc (run new-state cache) :state new-state)))
 
 (defn make-runner [component env]
-  (fn [s c] (let [{{dom :dom} :result
-                {:keys [handlers cache]} :state}
+  (fn [s c] (let [{{:keys [dom handlers]} :result
+                  {cache :cache} :state}
                  (eff/run component :env (assoc env :state s :cache c))]
-           {:dom dom
-            :handlers handlers
-            :cache cache})))
+             {:dom dom
+              :handlers handlers
+              :cache cache})))
 
 (defn run-app [component state & {:keys [conf]
                                   :or {conf {}}}]
