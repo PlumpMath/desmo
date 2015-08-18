@@ -18,29 +18,29 @@
                 :value v
                 :on-input #(send! :term-changed (.. % -target -value))
                 :on-key-down #(case (.-which %)
-                                13 (js/alert msg)
+                                13 (js/alert (str v " " msg))
                                 8 (when (-> % .-target .-value blank?)
                                     (send! :term-removed k))
                                 nil)))))
 
 (defc terms
-  (link term)
+  (link (term :as terms))
   (on :term-removed (fn [s k] (vec (remove (comp (partial = k) first) s))))
-  (div :class "terms" term))
+  (div :class "terms" terms))
 
 (defcfn term-changed [s v]
   (conf {msg :alert})
   (assoc s :log (str v " " msg)))
 
-(defc app {log :log}
-  (link terms)
+(defc logc s
+  (p (str "log: " s)))
+
+(defc app
+  (link terms (logc :by :log :as log))
   (use term-changed)
   (on :term-changed term-changed)
   (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v))))
-  (div
-   terms
-   (for [i (range 3)]
-     (p (str "log: " log)))))
+  (div terms log))
 
 (defn main []
   (let [store-key "app-state"

@@ -17,9 +17,11 @@
 
 (defn links [args]
   (->> args (filter (comp '#{link} first)) (mapcat rest)
-       (map (fn [c] {:binding [c `(link ~(keyword c) ~c)]
-                    :dom [c `(map :dom ~c)]
-                    :handlers `(apply merge-with concat (map :handlers ~c))}))))
+       (map (fn [c]
+              (let [[c & {:keys [by as] :or {by c as c}}] (if (sequential? c) c (list c))]
+                {:binding [as `(link ~(keyword by) ~c)]
+                 :dom [as `(map :dom ~as)]
+                 :handlers `(apply merge-with concat (map :handlers ~as))})))))
 
 (defmacro component [& [s & as :as args]]
   (let [args (if (list? s) args (concat (list (list 'state s)) as))
@@ -31,9 +33,12 @@
                    :dom (let ~(vec (mapcat :dom ls))
                           ~(last args))}))))))
 
+(defmacro cfn [params & args]
+  `(mlet ~(vec (bindings args))
+     (return (fn ~params ~(last args)))))
+
 (defmacro defc [name & args]
   `(def ~name (component ~@args)))
 
 (defmacro defcfn [name params & args]
-  `(def ~name (mlet ~(vec (bindings args))
-                (return (fn ~params ~(last args))))))
+  `(def ~name (cfn ~params ~@args)))
