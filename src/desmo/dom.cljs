@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [time map meta])
   (:require
    [clojure.string :refer [replace]]
-   [plumbing.core :refer [map-keys]]
+   [plumbing.core :refer [map-keys] :refer-macros [fn->]]
+   [plumbing.map :refer [merge-with-key]]
    [cljsjs.virtual-dom])
   (:require-macros
    [desmo.dom :refer [define-tags]]))
@@ -13,10 +14,23 @@
 
 (def patch (.-patch js/virtualDom))
 
-(defn collect-args [attrs args]
+(defn props-merge [k a b]
+  (case k
+    :class (str a " " b)
+    :default b))
+
+(defn collect-args [props args]
   (if (keyword? (first args))
-    (collect-args (conj attrs (vec (take 2 args))) (drop 2 args))
-    [attrs (flatten args)]))
+    (collect-args (merge-with-key props-merge props (apply hash-map (take 2 args)))
+                  (drop 2 args))
+    [props (flatten args)]))
+
+(defrecord Node [tag props children]
+  IFn
+  (-invoke [this & args]
+    (let [[ps cs] (collect-args props args)]
+      (-> (assoc this :props ps)
+          (update :children concat cs)))))
 
 (def fix-keys
   (partial map-keys (fn [k]
@@ -24,10 +38,20 @@
                   nk
                   (-> k name (replace "-" ""))))))
 
-(defn constructor [type]
-  (fn [& args]
-    (let [[attrs children] (collect-args {} args)]
-      (. js/virtualDom h type (-> attrs fix-keys clj->js) (clj->js children)))))
+(defprotocol IVdom
+  (vdom [this]))
+
+(extend-protocol IVdom
+  Node
+  (vdom [{:keys [tag props children]}]
+    (. js/virtualDom h tag (-> props fix-keys clj->js)
+       (clj->js (cljs.core/map vdom children))))
+  string
+  (vdom [this]
+    (let [VText (.-VText js/virtualDom)]
+      (VText. this))))
+
+(def constructor (fn-> (->Node {} '())))
 
 (define-tags
   a abbr address area article aside audio b base bdi bdo big blockquote body br

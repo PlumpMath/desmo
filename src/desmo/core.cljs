@@ -129,10 +129,10 @@
 
 (defn render-app [{:keys [dom init-dom] :as m} root]
   (gdom/removeChildren root)
-  (let [node (->> init-dom dom/tree (.appendChild root) atom)
+  (let [node (->> init-dom dom/vdom dom/tree (.appendChild root) atom)
         patches (->> dom
                      (sliding-pair init-dom)
-                     (signal/map (partial apply dom/diff))
+                     (signal/map (comp (partial apply dom/diff) (partial map dom/vdom)))
                      signal/to-chan)]
     (go-loop []
       (reset! node (dom/patch @node (<! patches)))
