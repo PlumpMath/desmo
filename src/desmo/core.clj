@@ -13,7 +13,11 @@
                    ((s->b s) v))))))
 
 (defn handlers [args]
-  (->> args (filter (comp '#{on on!} first)) vec))
+  (->> args
+       (filter (comp '#{on on!} first))
+       (map (fn [[on k f & b :as o]]
+              (if (vector? f) `(~on ~k (fn ~f ~@b)) `~o)))
+       vec))
 
 (defn links [args]
   (->> args (filter (comp '#{link} first)) (mapcat rest)

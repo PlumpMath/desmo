@@ -9,7 +9,7 @@
 (defc term [k v]
   (use send!)
   (conf {msg :alert})
-  (on :term-changed (fn [_ v] [k v]))
+  (on :term-changed [_ v] [k v])
   (let [n (-> k str (subs 1))
         l (->> (split n "/") (map capitalize) (join " "))]
     (div :class "term"
@@ -25,7 +25,7 @@
 
 (defc terms
   (link (term :as terms))
-  (on :term-removed (fn [s k] (vec (remove (comp (partial = k) first) s))))
+  (on :term-removed [s k] (vec (remove (comp (partial = k) first) s)))
   (div :class "terms" terms))
 
 (defcfn term-changed [s v]
@@ -39,7 +39,7 @@
   (link terms (logc :by :log :as log))
   (use term-changed)
   (on :term-changed term-changed)
-  (on! :term-changed (fn [s v] (. js/console log (str "term changed: " v))))
+  (on! :term-changed [s v] (. js/console log (str "term changed: " v)))
   (div terms log))
 
 (defn main []
