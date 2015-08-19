@@ -2,11 +2,11 @@
   (:refer-clojure :exclude [time map meta])
   (:require
    [clojure.string :refer [replace]]
-   [plumbing.core :refer [map-keys] :refer-macros [fn->]]
+   [plumbing.core :refer [map-keys]]
    [plumbing.map :refer [merge-with-key]]
    [cljsjs.virtual-dom])
   (:require-macros
-   [desmo.dom :refer [define-tags]]))
+   [desmo.dom :refer [define-nodes]]))
 
 (def tree (.-create js/virtualDom))
 
@@ -51,10 +51,8 @@
     (let [VText (.-VText js/virtualDom)]
       (VText. this))))
 
-(def constructor (fn-> (->Node {} '())))
-
-(define-tags
-  a abbr address area article aside audio b base bdi bdo big blockquote body br
+(define-nodes
+  a address area article aside audio b base bdi bdo big blockquote body br
   button canvas caption cite code col colgroup data datalist dd del details dfn
   div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6
   head header hr html i iframe img input ins kbd keygen label legend li link main
